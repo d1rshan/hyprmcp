@@ -1,175 +1,57 @@
 # hyprland-mcp
 
-MCP server for Hyprland desktop automation. Gives AI assistants the ability to see the screen, control mouse and keyboard, manage windows, and interact with the desktop — all through Hyprland's native Wayland tools.
+MCP server for [Hyprland](https://hyprland.org/) desktop automation. Lets AI assistants see the screen, drive mouse/keyboard, and manage windows — via native Wayland tools.
 
-Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), but works with any MCP client.
+Built for Claude Code, works with any MCP client.
 
-## What it does
-
-- **Screenshots** — Capture the full desktop, a specific monitor, window, or region. Images are automatically resized and JPEG-compressed to fit within MCP output limits. Every screenshot includes a coordinate mapping so the AI knows how to translate image positions to screen coordinates.
-- **OCR** — Find and click text on screen using Tesseract. `click_text("Send")` captures a screenshot, runs OCR, finds the text, and clicks it — all in one tool call. Auto-scopes to the active window for better accuracy.
-- **Mouse** — Move, click, scroll, and drag. Positioning uses Hyprland's native `movecursor` (pixel-accurate, no mouse acceleration issues).
-- **Keyboard** — Type text or send key combinations. Shortcuts can target specific windows without focusing them.
-- **Window management** — List, focus, close, move, resize, fullscreen, and float windows.
-- **Workspaces & monitors** — List workspaces, switch between them, query monitor layout and cursor position.
-- **Clipboard** — Read and write clipboard text.
-- **App launching** — Launch applications through Hyprland (detached, no shell expansion).
-
-## Requirements
-
-- [Hyprland](https://hyprland.org/) (Wayland compositor)
-- Python 3.10+
-- System tools: `grim`, `wtype`, `ydotool`, `wl-clipboard`, `tesseract`
-
-The install script checks for all of these and offers to install any that are missing.
-
-## Installation
+## (๑˃̵ᴗ˂̵) install
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/d1rshan/hyprmcp/main/install.sh | bash
 ```
 
-The install script handles everything automatically:
-1. Detects your package manager (pacman, apt, dnf, zypper, xbps, emerge, nix)
-2. Installs any missing system dependencies
-3. Installs hyprland-mcp via pipx
-4. Registers the MCP server with Claude Code
-
-Restart Claude Code after installing.
-
-Verify with `claude mcp list` — you should see `hyprland: ✓ Connected`.
+Detects your package manager, installs missing deps (`grim`, `wtype`, `ydotool`, `wl-clipboard`, `tesseract`), installs via pipx, and registers with Claude Code. Restart, then check `claude mcp list` → `hyprland: ✓ Connected`.
 
 <details>
-<summary>Manual installation</summary>
+<summary>manual</summary>
 
 ```bash
 pipx install git+https://github.com/d1rshan/hyprmcp.git
 claude mcp add --transport stdio --scope user hyprland -- hyprland-mcp
 ```
 
-Or from a local clone:
-
-```bash
-git clone https://github.com/d1rshan/hyprmcp.git
-cd hyprland-mcp
-python3 -m venv .venv
-.venv/bin/pip install -e .
-claude mcp add --transport stdio --scope user hyprland -- /path/to/hyprland-mcp/.venv/bin/hyprland-mcp
-```
+Needs Hyprland, Python 3.10+.
 
 </details>
 
-## Tools (27)
+## (￣▽￣) tools
 
-### Screenshot & OCR
+- **screenshot** `screenshot` `screenshot_with_ocr` — capture desktop/monitor/window/region, auto-scaled JPEG + coordinate mapping
+- **ocr** `click_text` `find_text_on_screen` `type_into` — find/click/type text, auto-inverts dark themes, auto-scopes to active window
+- **mouse** `mouse_move` `mouse_click` `mouse_scroll` `mouse_drag` — pixel-accurate via `movecursor`
+- **keyboard** `type_text` `key_press` `send_shortcut`
+- **windows** `list_windows` `get_active_window` `focus_window` `close_window` `move_window` `resize_window` `toggle_fullscreen` `toggle_floating`
+- **workspaces & monitors** `list_monitors` `list_workspaces` `switch_workspace` `get_cursor_position`
+- **system** `clipboard_read` `clipboard_write` `launch_app`
 
-| Tool | Description |
-|------|-------------|
-| `screenshot` | Capture desktop, monitor, window, or region. Returns inline JPEG + coordinate mapping for translating image positions to screen coordinates. |
-| `screenshot_with_ocr` | Screenshot + OCR in one call. Returns the image and all detected text. Auto-scopes to active window. |
-| `click_text` | Find text on screen via OCR and click it. One tool call replaces screenshot → parse → click. Auto-scopes to active window. |
-| `find_text_on_screen` | Find text on screen via OCR. Returns screen coordinates of all matches, ready for `mouse_click`. |
-| `type_into` | Find a text input field by placeholder text, click it, type, and optionally press Enter. |
+## (・_・) notes
 
-### Mouse
+- Screenshots include a coordinate mapping so the AI translates image pixels → screen coords correctly on multi-monitor setups.
+- OCR inverts dark-background shots before Tesseract — big accuracy gain on dark themes.
+- Screenshots default to ≤1024px wide, JPEG q60. Use `region`/`window` for fine text.
+- `close_window` sends WM_CLOSE (apps may prompt to save); no force-kill. `launch_app` is detached, no shell expansion. No filesystem access.
 
-| Tool | Description |
-|------|-------------|
-| `mouse_move` | Move cursor to absolute coordinates (pixel-accurate via Hyprland's `movecursor`) |
-| `mouse_click` | Click at position or current location (left/right/middle, single/double) |
-| `mouse_scroll` | Scroll wheel up/down at position or current location |
-| `mouse_drag` | Click-drag from one position to another |
-
-### Keyboard
-
-| Tool | Description |
-|------|-------------|
-| `type_text` | Type text as keyboard input (via `wtype`) |
-| `key_press` | Press a key combination like `ctrl+c`, `alt+F4` (via Hyprland `sendshortcut`) |
-| `send_shortcut` | Send a shortcut with explicit modifiers and key, optionally targeting a specific window |
-
-### Window Management
-
-| Tool | Description |
-|------|-------------|
-| `list_windows` | List all windows with class, title, size, position (filterable by workspace/monitor) |
-| `get_active_window` | Get details about the currently focused window |
-| `focus_window` | Focus a window by class or title selector |
-| `close_window` | Close a window (WM_CLOSE — apps can show save dialogs) |
-| `move_window` | Move a window to a pixel position or workspace |
-| `resize_window` | Resize a window to exact pixel dimensions |
-| `toggle_fullscreen` | Toggle fullscreen or maximize mode |
-| `toggle_floating` | Toggle floating mode |
-
-### Workspace & Monitor
-
-| Tool | Description |
-|------|-------------|
-| `list_monitors` | List connected monitors with resolution, position, refresh rate |
-| `list_workspaces` | List active workspaces with window counts |
-| `switch_workspace` | Switch to a workspace by name or number |
-| `get_cursor_position` | Get current cursor position in absolute layout coordinates |
-
-### Clipboard & System
-
-| Tool | Description |
-|------|-------------|
-| `clipboard_read` | Read current clipboard text |
-| `clipboard_write` | Write text to clipboard |
-| `launch_app` | Launch an application (detached, via `hyprctl dispatch exec`) |
-
-## How it works
-
-### Screenshot coordinate mapping
-
-Multi-monitor setups and image scaling make coordinate translation tricky. Every `screenshot` call returns a coordinate mapping alongside the image:
-
-```
-Coordinate mapping: This 941x1030 image covers screen region
-starting at absolute (5447, 38), native size 941x1030.
-To convert image coordinates to absolute screen coordinates:
-  screen_x = image_x * 1.00 + 5447
-  screen_y = image_y * 1.00 + 38
-```
-
-This prevents the AI from using image pixel positions directly as screen coordinates — a common failure mode on multi-monitor setups where monitors have different positions in the layout.
-
-### OCR and dark themes
-
-Tesseract OCR was designed for black text on white paper. Most desktop apps use dark themes, which tanks OCR accuracy. hyprland-mcp automatically detects dark-background screenshots and inverts them before running OCR, significantly improving text detection.
-
-OCR tools auto-scope to the active window by default (configurable with `scope="full"` for the entire desktop). Smaller capture area = better OCR accuracy = more reliable coordinate mapping.
-
-### Mouse positioning
-
-Mouse movement uses `hyprctl dispatch movecursor` — Hyprland's native IPC command that sets the cursor to exact pixel coordinates. No mouse acceleration, no relative movement, no coordinate drift. ydotool is only used for click and scroll events (which don't involve positioning).
-
-### Screenshot sizing
-
-Screenshots are automatically scaled to fit within MCP output limits. Default: max width 1024px, JPEG quality 60. A 2560x1440 desktop becomes ~80-100KB — small enough for inline display in the conversation.
-
-For reading fine text or UI details, use the `region` parameter to capture a smaller area at full resolution, or capture a specific `window`.
-
-## Project structure
+## (⌐■_■) layout
 
 ```
 hyprland_mcp/
-  server.py       # FastMCP instance, all tool definitions, entry point
-  hyprctl.py      # Async wrappers for hyprctl IPC (query, dispatch, batch)
-  screenshot.py   # grim capture + Pillow resize/compress + coordinate mapping
-  input.py        # Mouse (movecursor + ydotool) and keyboard (wtype + sendshortcut)
-  clipboard.py    # wl-copy / wl-paste wrappers
-  ocr.py          # Tesseract OCR with dark-theme preprocessing
-  errors.py       # Exception hierarchy + tool availability checks
+  server.py      # FastMCP tools + entry point
+  hyprctl.py     # async hyprctl IPC
+  screenshot.py  # grim + Pillow + coord mapping
+  input.py       # mouse + keyboard
+  clipboard.py   # wl-copy / wl-paste
+  ocr.py         # tesseract + preprocessing
+  errors.py      # exceptions + tool checks
 ```
-
-## Safety
-
-- `close_window` sends WM_CLOSE — apps can show "save changes?" dialogs. There is no force-kill tool.
-- `launch_app` goes through `hyprctl dispatch exec` — detached from the MCP process, no shell expansion.
-- No file system access — the MCP can see the screen and interact with it, but cannot read or write files.
-- Missing system tools produce clear error messages listing what to install.
-
-## License
 
 MIT
