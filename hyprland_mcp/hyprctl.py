@@ -26,41 +26,42 @@ async def query(command: str) -> dict | list:
         raise HyprctlError(f"Failed to parse hyprctl {command} output: {e}") from e
 
 
-async def dispatch(command: str, args: str = "") -> str:
-    """Run a hyprctl dispatch command.
+async def dispatch(expr: str) -> str:
+    """Run a Lua dispatcher expression via hyprctl.
 
-    Example: dispatch("focuswindow", "class:firefox")
+    Hyprland 0.56+ dispatches via Lua: pass an ``hl.dsp.*`` expression.
+    Example: dispatch("hl.dsp.focus({workspace = 1})")
     """
     require_tool("hyprctl")
-    cmd = ["hyprctl", "dispatch", command]
-    if args:
-        cmd.append(args)
     proc = await asyncio.create_subprocess_exec(
-        *cmd,
+        "hyprctl", "dispatch", expr,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
         raise HyprctlError(
-            f"hyprctl dispatch {command} {args} failed: {stderr.decode().strip()}"
+            f"hyprctl dispatch {expr} failed: {stderr.decode().strip()}"
         )
     return stdout.decode().strip()
 
 
-async def batch(commands: list[str]) -> str:
-    """Run multiple hyprctl dispatch commands in a batch.
+def lua(value) -> str:
+    """Serialize a Python value as a Lua literal."""
+    if value is None:
+        return "nil"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
-    Each command should be a full dispatch string like "dispatch focuswindow class:firefox".
+
+def spec(**fields) -> str:
+    """Build a Lua table literal, dropping fields whose value is None.
+
+    Example: spec(workspace=3, window="class:firefox") -> '{workspace = 3, window = "class:firefox"}'
     """
-    require_tool("hyprctl")
-    batch_str = " ; ".join(commands)
-    proc = await asyncio.create_subprocess_exec(
-        "hyprctl", "--batch", batch_str,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise HyprctlError(f"hyprctl --batch failed: {stderr.decode().strip()}")
-    return stdout.decode().strip()
+    return "{" + ", ".join(
+        f"{k} = {lua(v)}" for k, v in fields.items() if v is not None
+    ) + "}"

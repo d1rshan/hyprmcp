@@ -1,8 +1,8 @@
 """Mouse and keyboard input simulation.
 
-Mouse positioning: hyprctl dispatch movecursor (native, pixel-accurate)
+Mouse positioning: hyprctl dispatch hl.dsp.cursor.move (native, pixel-accurate)
 Mouse events: ydotool (click, scroll — events only, no positioning)
-Key combos: hyprctl dispatch sendshortcut (native, can target windows)
+Key combos: hyprctl dispatch hl.dsp.send_shortcut (native, can target windows)
 Text typing: wtype (only remaining wtype use)
 """
 
@@ -33,7 +33,7 @@ _BUTTON_UP = {
 
 async def move_cursor(x: int, y: int) -> None:
     """Move cursor to absolute coordinates using Hyprland's native movecursor."""
-    await hyprctl.dispatch("movecursor", f"{x} {y}")
+    await hyprctl.dispatch(f"hl.dsp.cursor.move({hyprctl.spec(x=x, y=y)})")
 
 
 async def click(button: str = "left", double: bool = False) -> None:
@@ -132,7 +132,7 @@ async def type_text(text: str, delay_ms: int = 0) -> None:
 
 
 async def key_press(keys: str, target: str | None = None) -> None:
-    """Press a key combination using hyprctl dispatch sendshortcut.
+    """Press a key combination using hyprctl dispatch hl.dsp.send_shortcut.
 
     Args:
         keys: Key combo like "ctrl+c", "alt+F4", "Return", "super+1"
@@ -147,5 +147,6 @@ async def key_press(keys: str, target: str | None = None) -> None:
         key = parts[-1]
         mods = " ".join(p.upper() for p in parts[:-1])
 
-    target_str = target or ""
-    await hyprctl.dispatch("sendshortcut", f"{mods}, {key}, {target_str}")
+    await hyprctl.dispatch(
+        f"hl.dsp.send_shortcut({hyprctl.spec(mods=mods, key=key, window=target)})"
+    )

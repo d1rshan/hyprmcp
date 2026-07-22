@@ -54,7 +54,7 @@ async def switch_workspace(workspace: str) -> str:
     Args:
         workspace: Workspace name or number (e.g. "1", "3", "special:scratchpad")
     """
-    await hyprctl.dispatch("workspace", workspace)
+    await hyprctl.dispatch(f"hl.dsp.focus({hyprctl.spec(workspace=workspace)})")
     return f"Switched to workspace {workspace}"
 
 
@@ -115,7 +115,7 @@ async def focus_window(target: str) -> str:
     Args:
         target: Window selector — "class:firefox", "title:My Document", etc.
     """
-    await hyprctl.dispatch("focuswindow", target)
+    await hyprctl.dispatch(f"hl.dsp.focus({hyprctl.spec(window=target)})")
     return f"Focused window matching '{target}'"
 
 
@@ -126,7 +126,7 @@ async def close_window(target: str | None = None) -> str:
     Args:
         target: Window selector (e.g. "class:firefox"). If omitted, closes the active window.
     """
-    await hyprctl.dispatch("closewindow", target or "")
+    await hyprctl.dispatch(f"hl.dsp.window.close({hyprctl.spec(window=target)})")
     return f"Closed window{f' matching {target!r}' if target else ' (active)'}"
 
 
@@ -146,15 +146,15 @@ async def move_window(
         workspace: Target workspace name/number to move the window to
     """
     results = []
-    addr = target or ""
     if x is not None and y is not None:
-        await hyprctl.dispatch("movewindowpixel", f"exact {x} {y},{addr}")
+        await hyprctl.dispatch(
+            f"hl.dsp.window.move({hyprctl.spec(x=x, y=y, window=target)})"
+        )
         results.append(f"Moved to ({x},{y})")
     if workspace is not None:
-        if target:
-            await hyprctl.dispatch("movetoworkspace", f"{workspace},{target}")
-        else:
-            await hyprctl.dispatch("movetoworkspace", workspace)
+        await hyprctl.dispatch(
+            f"hl.dsp.window.move({hyprctl.spec(workspace=workspace, window=target)})"
+        )
         results.append(f"Moved to workspace {workspace}")
     if not results:
         return "No position or workspace specified — nothing to do."
@@ -174,7 +174,9 @@ async def resize_window(
         height: Target height in pixels
         target: Window selector. If omitted, resizes the active window.
     """
-    await hyprctl.dispatch("resizewindowpixel", f"exact {width} {height},{target or ''}")
+    await hyprctl.dispatch(
+        f"hl.dsp.window.resize({hyprctl.spec(x=width, y=height, window=target)})"
+    )
     return f"Resized to {width}x{height}"
 
 
@@ -185,8 +187,8 @@ async def toggle_fullscreen(mode: str = "fullscreen") -> str:
     Args:
         mode: "fullscreen" for real fullscreen, "maximize" for maximized (keeps bar)
     """
-    flag = "0" if mode == "fullscreen" else "1"
-    await hyprctl.dispatch("fullscreen", flag)
+    mode_name = "maximized" if mode == "maximize" else "fullscreen"
+    await hyprctl.dispatch(f"hl.dsp.window.fullscreen({hyprctl.spec(mode=mode_name)})")
     return f"Toggled {mode}"
 
 
@@ -197,7 +199,9 @@ async def toggle_floating(target: str | None = None) -> str:
     Args:
         target: Window selector. If omitted, toggles the active window.
     """
-    await hyprctl.dispatch("togglefloating", target or "")
+    await hyprctl.dispatch(
+        f"hl.dsp.window.float({hyprctl.spec(action='toggle', window=target)})"
+    )
     return f"Toggled floating{f' for {target}' if target else ''}"
 
 
@@ -233,7 +237,7 @@ async def launch_app(command: str) -> str:
     Args:
         command: The command to run (e.g. "firefox", "kitty", "nautilus ~/Documents")
     """
-    await hyprctl.dispatch("exec", command)
+    await hyprctl.dispatch(f"hl.dsp.exec_cmd({hyprctl.lua(command)})")
     return f"Launched: {command}"
 
 
@@ -365,8 +369,9 @@ async def send_shortcut(mods: str, key: str, target: str | None = None) -> str:
         key: Key name (e.g. "c", "F4", "Return", "space")
         target: Optional window selector (e.g. "class:firefox"). Empty = active window.
     """
-    target_str = target or ""
-    await hyprctl.dispatch("sendshortcut", f"{mods}, {key}, {target_str}")
+    await hyprctl.dispatch(
+        f"hl.dsp.send_shortcut({hyprctl.spec(mods=mods, key=key, window=target)})"
+    )
     desc = f"{mods}+{key}" if mods else key
     return f"Sent shortcut {desc}{f' to {target}' if target else ''}"
 
@@ -578,7 +583,7 @@ async def type_into(
 
     # Focus the window if specified
     if window:
-        await hyprctl.dispatch("focuswindow", window)
+        await hyprctl.dispatch(f"hl.dsp.focus({hyprctl.spec(window=window)})")
         await asyncio.sleep(0.1)
 
     png_bytes, origin_x, origin_y = await _auto_scope_capture(
@@ -632,7 +637,7 @@ async def type_into(
     # Submit if requested
     if submit:
         await asyncio.sleep(0.05)
-        await hyprctl.dispatch("sendshortcut", ", Return, ")
+        await hyprctl.dispatch('hl.dsp.send_shortcut({mods = "", key = "Return"})')
         result += ", pressed Enter"
 
     return result

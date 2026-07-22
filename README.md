@@ -1,4 +1,4 @@
-# hyprland-mcp
+# hyprmcp
 
 MCP server for [Hyprland](https://hyprland.org/) desktop automation. Lets AI assistants see the screen, drive mouse/keyboard, and manage windows — via native Wayland tools.
 
